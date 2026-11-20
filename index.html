@@ -2,11 +2,13 @@
 <html lang="de">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#242927"><title>Jasspäpste – Startseite</title>
+<meta name="theme-color" content="#101a17">
+<meta name="mobile-web-app-capable" content="yes"><title>Jasspäpste – Startseite</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="screen-orientation" content="landscape">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 :root{--bg:#101a17;--panel:#192722;--panel2:#22332c;--line:#35483f;--text:#f4f5ef;--muted:#aab8ae;--green:#b8d7a6;--gold:#e7c77c}
@@ -536,8 +538,8 @@ function startFinishConfetti(){
  function draw(now){
   const elapsed=now-started;
   ctx.clearRect(0,0,w,h);
-  if(elapsed>=5000||document.getElementById('finishModal')?.classList.contains('hidden')){canvas.remove();return}
-  ctx.globalAlpha=Math.min(1,(5000-elapsed)/550);
+  if(elapsed>=10000||document.getElementById('finishModal')?.classList.contains('hidden')){canvas.remove();return}
+  ctx.globalAlpha=Math.min(1,(10000-elapsed)/550);
   for(const p of particles){
    p.x+=p.vx+Math.sin(now*.002+p.rotation)*.5;p.y+=p.vy;p.rotation+=p.spin;
    if(p.y>h+15){p.y=-20;p.x=Math.random()*w}
@@ -649,8 +651,8 @@ function startSpecialConfetti(){
  const start=performance.now();
  function frame(now){
   const elapsed=now-start;ctx.clearRect(0,0,w,h);
-  if(elapsed>=5000||document.getElementById('specialMatchModal')?.classList.contains('hidden')){canvas.remove();return}
-  ctx.globalAlpha=Math.min(1,(5000-elapsed)/550);
+  if(elapsed>=10000||document.getElementById('specialMatchModal')?.classList.contains('hidden')){canvas.remove();return}
+  ctx.globalAlpha=Math.min(1,(10000-elapsed)/550);
   for(const p of pieces){p.x+=p.vx+Math.sin(now*.002+p.r)*.5;p.y+=p.vy;p.r+=p.spin;if(p.y>h+15){p.y=-20;p.x=Math.random()*w}ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/3,p.s,p.s*.65);ctx.restore()}
   requestAnimationFrame(frame);
  }
@@ -1080,4 +1082,17 @@ init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Offline-Modus nicht aktiviert:',err)));
 }
-</script></body></html>
+</script>
+<script>
+// Optional fullscreen fallback for Android devices that keep system chrome visible.
+(function(){
+ const b=document.createElement('button');
+ b.id='jassFullscreenButton'; b.type='button'; b.textContent='⛶ Vollbild';
+ b.setAttribute('aria-label','Vollbildmodus aktivieren');
+ b.style.cssText='position:fixed;right:12px;bottom:14px;z-index:99999;background:#192722;color:#e7c77c;border:1px solid #e7c77c;border-radius:12px;padding:10px 13px;font:600 13px system-ui;box-shadow:0 2px 12px #0007';
+ b.onclick=async function(){try{if(document.fullscreenElement){await document.exitFullscreen()}else{await document.documentElement.requestFullscreen({navigationUI:'hide'});try{screen.orientation&&screen.orientation.lock&&await screen.orientation.lock('landscape')}catch(e){}}}catch(e){alert('Vollbild wird von diesem Browser nicht unterstützt. Bitte die App nach dem Update neu installieren.')}};
+ document.addEventListener('fullscreenchange',()=>{b.textContent=document.fullscreenElement?'⛶ Vollbild verlassen':'⛶ Vollbild'});
+ document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(b));
+})();
+</script>
+</body></html>
