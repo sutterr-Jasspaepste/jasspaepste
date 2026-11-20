@@ -1094,33 +1094,30 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 }
 </script>
 
+<style id="jass-fullscreen-control-style">
+#jassFullscreenControl{position:fixed!important;top:9px!important;right:12px!important;bottom:auto!important;left:auto!important;z-index:2147483647!important;display:block!important;visibility:visible!important;opacity:1!important;min-width:0!important;width:auto!important;height:auto!important;padding:7px 11px!important;border:1px solid #e7c77c!important;border-radius:7px!important;background:#192722!important;color:#f3dfb3!important;font:700 12px/1.2 system-ui,sans-serif!important;box-shadow:0 2px 9px #0009!important;cursor:pointer!important;pointer-events:auto!important}
+#jassFullscreenControl:active{background:#334c3d!important}
+</style>
+<button id="jassFullscreenControl" type="button" aria-label="Vollbildmodus umschalten">⛶ Vollbild</button>
 <script>
-/* Lenovo: Vollbild aktivieren, Knopf im Vollbild automatisch verbergen. */
-(function () {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.id = 'jassFullscreenButton';
-  button.textContent = '⛶ Vollbild';
-  button.setAttribute('aria-label', 'Vollbildmodus aktivieren');
-  button.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:99999;background:#192722;color:#e7c77c;border:1px solid #e7c77c;border-radius:9px;padding:7px 11px;font:600 12px system-ui;box-shadow:0 2px 10px #0008;cursor:pointer';
-  function update() {
-    button.style.display = document.fullscreenElement ? 'none' : 'block';
-  }
-  button.addEventListener('click', async function () {
-    try {
-      await document.documentElement.requestFullscreen({navigationUI:'hide'});
-      try {
-        if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-      } catch (_) {}
-    } catch (_) {
-      alert('Vollbild konnte nicht aktiviert werden. Bitte die App in Chrome öffnen.');
+/* Lenovo: bewusst immer sichtbarer Vollbild-Schalter, ohne untere Leiste. */
+(function(){
+  var btn=document.getElementById('jassFullscreenControl');
+  if(!btn)return;
+  function refresh(){btn.textContent=document.fullscreenElement?'⛶ Vollbild verlassen':'⛶ Vollbild';}
+  btn.addEventListener('click',function(){
+    if(document.fullscreenElement){
+      document.exitFullscreen().catch(function(e){console.warn('Vollbild verlassen:',e)});
+    }else{
+      var el=document.documentElement;
+      if(!el.requestFullscreen){alert('Dieser Browser unterstützt den Vollbildmodus nicht.');return;}
+      el.requestFullscreen({navigationUI:'hide'}).then(function(){
+        if(screen.orientation&&screen.orientation.lock){screen.orientation.lock('landscape').catch(function(){});}
+      }).catch(function(err){alert('Vollbild konnte nicht aktiviert werden: '+err.message);});
     }
-    update();
   });
-  document.addEventListener('fullscreenchange', update);
-  document.addEventListener('fullscreenerror', update);
-  document.body.appendChild(button);
-  update();
+  document.addEventListener('fullscreenchange',refresh);
+  refresh();
 })();
 </script>
 </body></html>
