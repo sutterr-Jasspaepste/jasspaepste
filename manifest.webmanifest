@@ -1,13 +1,17 @@
-
 {
-  "name": "Jasspäpste",
+  "id": "./",
+  "name": "Jasspäpste – Jass-App",
   "short_name": "Jasspäpste",
-  "description": "Unsere Jass-App",
-  "start_url": "./",
+  "description": "Die Jasspäpste Punktetafel, Partien und Statistiken",
+  "start_url": "./index.html",
   "scope": "./",
-  "display": "standalone",
-  "background_color": "#063b29",
-  "theme_color": "#063b29",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen"
+  ],
+  "orientation": "landscape",
+  "background_color": "#101a17",
+  "theme_color": "#101a17",
   "icons": [
     {
       "src": "./icon-192.png",
