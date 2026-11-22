@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#101a17">
-<meta name="mobile-web-app-capable" content="yes"><title>Jasspäpste – Kamera-Test v2</title>
+<meta name="mobile-web-app-capable" content="yes"><title>Jasspäpste</title>
 <link rel="manifest" href="./manifest.webmanifest?v=20261122">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=20261122">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=20261122">
@@ -1213,6 +1213,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 </script>
 
 
+<div id="jassCameraOverlay" hidden style="position:fixed;inset:0;z-index:999999;background:#111b17f5;display:flex;align-items:center;justify-content:center;padding:15px"><div style="width:min(100%,720px);background:#252d29;border:2px solid #e5c58a;border-radius:10px;padding:16px;text-align:center"><h2>📸 Siegerfoto aufnehmen</h2><video id="jassCameraVideo" playsinline webkit-playsinline muted autoplay autoplay playsinline muted style="width:100%;max-height:65vh;object-fit:contain;background:#000;border-radius:6px"></video><div class="actions" style="justify-content:center"><button type="button" id="jassCameraShot" class="btn"><svg class="photo-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7.5 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.5z"/><circle cx="12" cy="13" r="3.5"/></svg> Foto machen</button><button type="button" id="jassCameraCancel" class="btn secondary">Abbrechen</button></div><p id="jassCameraStatus" class="small"></p></div></div><style>#jassCameraOverlay[hidden]{display:none!important}.winner-photo-tools>button{margin:4px}</style>
 <script>
 // Siegerfotos werden im lokalen IndexedDB-Speicher des Tablets abgelegt.
 (function(){
@@ -1320,10 +1321,28 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
  camCancel.addEventListener('click',closeJassCamera);
  async function openJassCamera(onPhoto){
    closeJassCamera();camCallback=onPhoto;camOverlay.hidden=false;camStatus.textContent='Kamera wird gestartet …';camShot.disabled=true;
-   if(!navigator.mediaDevices?.getUserMedia){camStatus.textContent='Kamera im aktuellen Browser nicht verfügbar. Bitte die App über HTTPS in Chrome öffnen.';return;}
-   try{camStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
-     camVideo.srcObject=camStream;await camVideo.play();camShot.disabled=false;camStatus.textContent='Foto aufnehmen und anschliessend speichern.';
-   }catch(err){camStatus.textContent='Kamera konnte nicht gestartet werden: '+(err.message||err)+'. Bitte Kamera-Berechtigung prüfen.';}
+   if(!window.isSecureContext || !navigator.mediaDevices?.getUserMedia){camStatus.textContent='Kamera nicht verfügbar. Bitte die HTTPS-Adresse in Safari oder Chrome öffnen und den Kamerazugriff erlauben.';return;}
+   try{
+     camVideo.setAttribute('playsinline','');camVideo.setAttribute('webkit-playsinline','');
+     camVideo.muted=true;camVideo.autoplay=true;
+     try{camStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});}
+     catch(firstError){
+       if(['OverconstrainedError','NotFoundError','NotReadableError'].includes(firstError.name)){
+         camStream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
+       }else{throw firstError;}
+     }
+     if(camOverlay.hidden){camStream.getTracks().forEach(t=>t.stop());camStream=null;return;}
+     camVideo.srcObject=camStream;
+     await camVideo.play();
+     camShot.disabled=false;camStatus.textContent='Foto aufnehmen und anschliessend speichern.';
+   }catch(err){
+     if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+     const detail=err?.name==='NotAllowedError'?'Kamerazugriff wurde verweigert. Bitte in den Safari-Website-Einstellungen die Kamera erlauben.':
+       err?.name==='NotFoundError'?'Keine Kamera gefunden.':
+       err?.name==='NotReadableError'?'Kamera ist möglicherweise von einer anderen App belegt.':
+       (err?.name||'Fehler')+': '+(err?.message||String(err));
+     camStatus.textContent='Kamera konnte nicht gestartet werden: '+detail;
+   }
  }
  camShot.addEventListener('click',()=>{if(!camStream||!camVideo.videoWidth)return;
    camShot.disabled=true;const canvas=document.createElement('canvas');const scale=Math.min(1,1920/camVideo.videoWidth);canvas.width=Math.round(camVideo.videoWidth*scale);canvas.height=Math.round(camVideo.videoHeight*scale);
@@ -1384,4 +1403,4 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
  refreshHistoricParties();
  renderGallery();
 })();
-</script><div id="jassCameraOverlay" hidden style="position:fixed;inset:0;z-index:999999;background:#111b17f5;display:flex;align-items:center;justify-content:center;padding:15px"><div style="width:min(100%,720px);background:#252d29;border:2px solid #e5c58a;border-radius:10px;padding:16px;text-align:center"><h2>📸 Siegerfoto aufnehmen</h2><video id="jassCameraVideo" autoplay playsinline muted style="width:100%;max-height:65vh;object-fit:contain;background:#000;border-radius:6px"></video><div class="actions" style="justify-content:center"><button type="button" id="jassCameraShot" class="btn"><svg class="photo-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7.5 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.5z"/><circle cx="12" cy="13" r="3.5"/></svg> Foto machen</button><button type="button" id="jassCameraCancel" class="btn secondary">Abbrechen</button></div><p id="jassCameraStatus" class="small"></p></div></div><style>#jassCameraOverlay[hidden]{display:none!important}.winner-photo-tools>button{margin:4px}</style></body></html>
+</script></body></html>
