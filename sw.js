@@ -1,5 +1,31 @@
-const CACHE='jasspaepste-fullscreen-v1';
-const ASSETS=['./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
-self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting()});
-self.addEventListener('activate',event=>{event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]))});
-self.addEventListener('fetch',event=>{const req=event.request;if(req.method!=='GET')return;if(req.mode==='navigate'){event.respondWith(fetch(req).then(res=>{const copy=res.clone();caches.open(CACHE).then(c=>c.put(req,copy));return res}).catch(()=>caches.match(req)));return;}event.respondWith(caches.match(req).then(hit=>hit||fetch(req)))})
+/* Jasspäpste PWA – network-first update, 2026-11-22 photo fix */
+const CACHE_NAME = 'jasspaepste-pwa-photo-20261122-v2';
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    try { await cache.add(new Request('./index.html', {cache:'reload'})); } catch (_) {}
+    await self.skipWaiting();
+  })());
+});
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key !== CACHE_NAME && /jass|pwa|offline|static/i.test(key)).map(key => caches.delete(key)));
+    await self.clients.claim();
+  })());
+});
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  if (request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(new Request(request, {cache:'no-store'}));
+        if (response.ok) (await caches.open(CACHE_NAME)).put('./index.html', response.clone()).catch(()=>{});
+        return response;
+      } catch (err) {
+        return (await caches.match('./index.html')) || Response.error();
+      }
+    })());
+  }
+});
