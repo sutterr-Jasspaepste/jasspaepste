@@ -1257,7 +1257,7 @@ async function importJSON(ev){
   const photoBackup=imported._jasspaepsteFullBackup;
   const photoEntries=photoBackup?.photos;
   if(photoBackup && !Array.isArray(photoEntries))throw Error('Ungültiger Siegerfoto-Bereich im Backup.');
-  if(photoEntries && photoEntries.some(p=>!p||typeof p.id!=='string'||typeof p.dataUrl!=='string'||!/^data:image\/(jpeg|png|webp|gif|heic|heif);base64,/i.test(p.dataUrl)))throw Error('Ungültige Siegerfoto-Daten.');
+  if(photoEntries && photoEntries.some(p=>!p||typeof p.id!=='string'||typeof p.dataUrl!=='string'||!/^data:image\/(jpeg|jpg|png|webp|gif|heic|heif|pict|heic-sequence|heif-sequence);base64,/i.test(p.dataUrl)))throw Error('Ungültige Siegerfoto-Daten.');
   const message=photoEntries?`Dieses Full-Backup enthält ${photoEntries.length} Siegerfoto(s). Aktuelle Partien und Geldbuchungen werden ersetzt; vorhandene Fotos derselben Partien werden überschrieben. Fortfahren?`:'Dieses ältere JSON-Backup enthält keine Siegerfotos. Partien und Geldbuchungen werden ersetzt, lokal vorhandene Fotos bleiben erhalten. Fortfahren?';
   if(!confirm(message))return;
   // Bilder vor dem Wechsel der Partiedaten sichern; bei Speicherfehler kein db-Wechsel.
