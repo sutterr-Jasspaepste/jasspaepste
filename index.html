@@ -1116,9 +1116,19 @@ function renderProfiles(){
  }).join("");
 }
 function ensureMoneyLedger(){
- if(db.moneyLedger&&Array.isArray(db.moneyLedger.excludedEveningIds))return;
- // Der erste Start dieser Version setzt den finanziellen Nullpunkt: alle bisherigen Partien bleiben historisch sichtbar, werden aber nicht belastet.
- db.moneyLedger={excludedEveningIds:db.evenings.filter(e=>e.finished).map(e=>e.id),openingCents:Object.fromEntries(FIXED_PLAYERS.map(n=>[n,0])),payments:[]};
+ // Einmaliger Stichtag beim ersten Start dieser Version: bereits abgeschlossene
+ // Partien sind rein historisch und dürfen keine neuen Schulden erzeugen.
+ const finishedIds=(db.evenings||[]).filter(e=>e.finished).map(e=>e.id);
+ if(!db.moneyLedger || !Array.isArray(db.moneyLedger.excludedEveningIds)){
+  db.moneyLedger={excludedEveningIds:finishedIds,openingCents:Object.fromEntries(FIXED_PLAYERS.map(n=>[n,0])),payments:[],historicalMoneyCutoverV2:true};
+  localStorage.setItem(KEY,JSON.stringify(db));
+  return;
+ }
+ const ledger=db.moneyLedger;
+ if(ledger.historicalMoneyCutoverV2===true)return;
+ // Vorhandene Einzahlungen und Anfangssalden bleiben erhalten.
+ ledger.excludedEveningIds=[...new Set([...ledger.excludedEveningIds,...finishedIds])];
+ ledger.historicalMoneyCutoverV2=true;
  localStorage.setItem(KEY,JSON.stringify(db));
 }
 function moneyCents(v){return Math.round(Number(v)*100)}
@@ -1195,7 +1205,7 @@ download(csv,"text/csv;charset=utf-8","coiffeur-jass-tafel.csv")
 async function backup(){
  try{
   const stamp=new Date().toISOString().slice(0,10);
-  const photos=await getPhotos();
+  const photos=await window.jassGetPhotos();
   const encoded=[];
   for(const photo of photos){
    if(!(photo.blob instanceof Blob))continue;
@@ -1231,7 +1241,11 @@ function importHistory(ev){
    if(!incoming.length&&!repairs.length){alert(`Keine neuen Partien. ${skipped} bereits vorhanden.`);return;}
    if(!confirm(`${incoming.length} neue historische Partien ergänzen und ${repairs.length} bereits vorhandene, offene historische Partien als abgeschlossen korrigieren?\n${skipped} bestehende abgeschlossene Partien werden übersprungen.\n\nSpieler, Money und andere Partien bleiben unverändert.`))return;
    for(const [i,e] of repairs)db.evenings[i]=e;
-   db.evenings.push(...incoming);persist();alert(`${incoming.length} Partien importiert, ${repairs.length} unvollständige Einträge korrigiert, ${skipped} übersprungen.`);
+   db.evenings.push(...incoming);
+   // Nachträglich importierte historische Partien sind ebenfalls keine neuen Schulden.
+   ensureMoneyLedger();
+   db.moneyLedger.excludedEveningIds=[...new Set([...db.moneyLedger.excludedEveningIds,...incoming.map(e=>e.id),...repairs.map(([,e])=>e.id)])];
+   persist();alert(`${incoming.length} Partien importiert, ${repairs.length} unvollständige Einträge korrigiert, ${skipped} übersprungen.`);
   }catch(err){alert("Import nicht möglich: "+err.message)}finally{ev.target.value=""}
  };reader.onerror=()=>{alert("Datei konnte nicht gelesen werden.");ev.target.value=""};reader.readAsText(file);
 }
@@ -1251,12 +1265,12 @@ async function importJSON(ev){
    for(const p of photoEntries){
     const response=await fetch(p.dataUrl);const blob=await response.blob();
     if(!blob.type.startsWith('image/'))throw Error('Ungültiges Bildformat im Backup.');
-    await storePhoto({id:p.id,eveningId:p.eveningId||p.id,date:p.date,createdAt:p.createdAt,blob});
+    await window.jassStorePhoto({id:p.id,eveningId:p.eveningId||p.id,date:p.date,createdAt:p.createdAt,blob});
    }
   }
   const { _jasspaepsteFullBackup:ignored,...restoredDB}=imported;
   db=restoredDB;currentId=null;ensureMoneyLedger();persist();
-  if(typeof renderGallery==='function')await renderGallery();
+  if(typeof window.jassRenderGallery==='function')await window.jassRenderGallery();
   alert('Full-Backup wiederhergestellt'+(photoEntries?` (${photoEntries.length} Siegerfotos).`:'.'));
  }catch(err){alert('Import fehlgeschlagen: '+(err.message||err));}
  finally{ev.target.value='';}
@@ -1301,6 +1315,8 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
    const tx=d.transaction('photos','readwrite');tx.objectStore('photos').delete(id);
    tx.oncomplete=()=>{d.close();resolve();};tx.onerror=()=>{d.close();reject(tx.error);};
  });}
+ window.jassGetPhotos=getPhotos;
+ window.jassStorePhoto=storePhoto;
  let boardPhotoUrl=null, boardPhotoRequest=0;
  const boardPhotoSection=document.getElementById('boardWinnerPhoto');
  const boardPhotoImage=document.getElementById('boardWinnerPhotoImage');
@@ -1457,6 +1473,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
  document.querySelectorAll('[data-view="data"]').forEach(btn=>btn.addEventListener('click',refreshHistoricParties));
  refreshHistoricParties();
  refreshHistoricParties();
+ window.jassRenderGallery=renderGallery;
  renderGallery();
 })();
 </script>
