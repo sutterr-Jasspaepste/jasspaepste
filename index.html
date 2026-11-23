@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="jass-build" content="20261123-pwa-photo-full"><meta name="theme-color" content="#101a17">
+<meta name="jass-build" content="20261123-profile-raw-average"><meta name="theme-color" content="#101a17">
 <meta name="mobile-web-app-capable" content="yes"><title>Jasspäpste</title>
 <link rel="manifest" href="./manifest.webmanifest?v=20261122">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png?v=20261122">
@@ -1105,14 +1105,39 @@ function getCategoryExtremes(){
   return [name,{best:ranked[0]||null,worst:ranked[ranked.length-1]||null}];
  }));
 }
+// Ungewichteter Rohpunkte-Durchschnitt je tatsächlich gespielter Jassrunde (0–157).
+// Die Spielerzuordnung erfolgt pro Runde, damit auch Teamwechsel korrekt zählen.
+function getAverageRawPointsByPlayer(){
+ const sums=new Map(FIXED_PLAYERS.map(name=>[name,{sum:0,count:0}]));
+ const idName=new Map(db.players.map(p=>[p.id,p.name]));
+ for(const e of db.evenings){
+  if(!e.finished||!Array.isArray(e.results))continue;
+  for(const r of e.results){
+   if(r.notPlayed)continue;
+   for(const [side,keys] of [['teamA',['teamA1','teamA2']],['teamB',['teamB1','teamB2']]]){
+    const raw=r[side];
+    if(raw===null||raw===undefined||raw===''||!Number.isFinite(Number(raw)))continue;
+    const ids=Array.isArray(r[side+'Players'])&&r[side+'Players'].length===2
+     ?r[side+'Players']:(e.teams?keys.map(k=>e.teams[k]):[]);
+    if(ids.length!==2||new Set(ids).size!==2)continue;
+    for(const id of ids){
+     const entry=sums.get(idName.get(id));
+     if(entry){entry.sum+=Number(raw);entry.count++;}
+    }
+   }
+  }
+ }
+ return new Map([...sums].map(([name,v])=>[name,v.count?v.sum/v.count:null]));
+}
 function renderProfiles(){
  const target=$("profileCards");if(!target)return;
  const byName=new Map(getOverviewData().map(p=>[p.name,p]));
  const categoryExtremes=getCategoryExtremes();
+ const averageRawPoints=getAverageRawPointsByPlayer();
  target.innerHTML=["Reto","Chrigi","David","Gehring"].map(name=>{
    const p=byName.get(name)||{wins:0,matches:0};
    const photo=document.getElementById("portrait-"+name)?.textContent.trim()||"";
-   return `<article class="profile-card"><img class="profile-photo" src="${photo}" alt="Original-Panini-Bild von ${name}" loading="lazy"><div class="profile-annual-wins"><strong>${annualWins(name)}</strong><span>Jahressiege</span></div><div class="profile-metrics"><div class="profile-stat"><strong>${p.wins}</strong><span>Gewonnene<br>Spiele</span></div><div class="profile-stat"><strong>${p.matches}</strong><span>Mätchelis</span></div><div class="profile-stat"><strong>CHF ${statsNum(p.owed||0,2)}</strong><span>Geschuldetes Geld<br>(seit Beginn)</span></div><div class="profile-stat"><strong>${statsNum(p.points||0,0)}</strong><span>Punktetotal<br>(seit Beginn)</span></div></div><div class="profile-extremes">${[["Stärke",categoryExtremes.get(name)?.best],["Schwäche",categoryExtremes.get(name)?.worst]].map(([label,v])=>`<div class="profile-extreme"><span>${label}</span><b>${v?esc(v.type)+" ("+statsNum(v.avg,1)+")":"–"}</b></div>`).join("")}</div></article>`;
+   return `<article class="profile-card"><img class="profile-photo" src="${photo}" alt="Original-Panini-Bild von ${name}" loading="lazy"><div class="profile-annual-wins"><strong>${annualWins(name)}</strong><span>Jahressiege</span></div><div class="profile-metrics"><div class="profile-stat"><strong>${p.wins}</strong><span>Gewonnene<br>Spiele</span></div><div class="profile-stat"><strong>${p.matches}</strong><span>Mätchelis</span></div><div class="profile-stat"><strong>CHF ${statsNum(p.owed||0,0)}</strong><span>Geschuldetes Geld<br>(seit Beginn)</span></div><div class="profile-stat"><strong>${averageRawPoints.get(name)===null?"–":statsNum(averageRawPoints.get(name),1)}</strong><span>Ø Punkte<br>pro Runde (ungewichtet)</span></div></div><div class="profile-extremes">${[["Stärke",categoryExtremes.get(name)?.best],["Schwäche",categoryExtremes.get(name)?.worst]].map(([label,v])=>`<div class="profile-extreme"><span>${label}</span><b>${v?esc(v.type)+" ("+statsNum(v.avg,1)+")":"–"}</b></div>`).join("")}</div></article>`;
  }).join("");
 }
 function ensureMoneyLedger(){
