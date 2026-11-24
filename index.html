@@ -1028,7 +1028,19 @@ async function exportAnnualPpt(){
  const headers=['Name','Partien','Siege','Quote','Punkte','Mätchelis','Ø Mätch.','Konter','Bagels','Serie','Max. Serie','CHF'];const statrow=(n,p)=>[n,p.games,p.wins,p.games?num(p.wins/p.games*100)+'%':'–',num(p.points),p.matches,p.games?num(p.matches/p.games):'–',p.counters,p.bagels,p.streak,p.longest,num(p.debt)];table('Spielerstatistik',`Jassjahr ${year} · CHF pro Spieler`,headers,names.map((n,i)=>statrow(n,ps[i])));table('Teamstatistik',`Jassjahr ${year} · CHF pro Team`,headers,pairs.map((p,i)=>statrow(p.join(' & '),ts[i])));
  const chartOpts={x:.8,y:1.65,w:11.7,h:5.1,chartColors:colors,showLegend:true,legendPos:'b',legendColor:white,catAxisLabelColor:white,valAxisLabelColor:white,showTitle:false,showValue:false,showCatName:false,showBorder:false,showMarker:true,catAxisLabelFontSize:11,valAxisLabelFontSize:11,valGridLine:{color:'405348',size:.5},showCatAxisTitle:false,showValAxisTitle:false,chartArea:{fill:{color:bg}},plotArea:{fill:{color:bg}}};
  const ranked=pairs.map((p,i)=>({n:p.join(' & '),...ts[i]})).sort((a,b)=>(b.games?b.wins/b.games:0)-(a.games?a.wins/a.games:0));s=slide('Erfolgreichste Teamkombinationen','Siegquote · absteigend');s.addChart(ppt.ChartType.bar,[{name:'Siegquote',labels:ranked.map(p=>p.n),values:ranked.map(p=>p.games?p.wins/p.games*100:0)}],{...chartOpts,barDir:'bar',showLegend:false,valAxisMinVal:0,valAxisMaxVal:100});
- for(const [title,k] of [['Kumulierte geschuldete Beträge','debt'],['Kumulierte Mätchelis','matches'],['Kumulierte Siege','wins']]){s=slide(title,'Entwicklung pro Partie · Start bei null');s.addChart(ppt.ChartType.line,names.map(n=>{let total=0;return {name:n,labels:['Start',...rows.map(r=>r.e.date)],values:[0,...rows.map(r=>total+=stats([r],[n])[k])]};}),chartOpts);}
+ function drawAnnualLine(s,series,metric){
+ const x=1.45,y=1.85,w=10.85,h=4.25,n=series[0].values.length;
+ const peak=Math.max(1,...series.flatMap(v=>v.values));
+ const step0=peak/5, power=10**Math.floor(Math.log10(step0));
+ const step=Math.max(metric==='debt'?1:1,Math.ceil(step0/power)*power), top=step*5;
+ const px=i=>x+w*i/Math.max(1,n-1), py=v=>y+h-h*v/top;
+ for(let j=0;j<=5;j++){const yy=py(j*step);s.addShape(ppt.ShapeType.line,{x,y:yy,w,h:0,line:{color:'405348',width:.7}});text(s,num(j*step),.48,yy-.12,.83,.24,{fontSize:11,align:'right',color:muted});}
+ const stride=Math.max(1,Math.ceil((n-1)/9));
+ for(let i=0;i<n;i++){if(i%stride!==0&&i!==n-1)continue; if(i!==n-1&&n-1-i<stride/2)continue;const label=i===0?'Start':String(series[0].labels[i]).slice(0,10);text(s,label,px(i)-.48,y+h+.12,.96,.28,{fontSize:9,align:'center',color:muted});}
+ series.forEach((v,j)=>{const color=colors[j];for(let i=1;i<n;i++){const a=py(v.values[i-1]),b=py(v.values[i]);s.addShape(ppt.ShapeType.line,{x:px(i-1),y:Math.min(a,b),w:px(i)-px(i-1),h:Math.abs(a-b),flipV:b<a,line:{color,width:2.5}});}for(let i=0;i<n;i++)s.addShape(ppt.ShapeType.ellipse,{x:px(i)-.045,y:py(v.values[i])-.045,w:.09,h:.09,fill:{color},line:{color,width:.5}});const lx=1.65+j*2.75;s.addShape(ppt.ShapeType.line,{x:lx,y:6.65,w:.35,h:0,line:{color,width:2.5}});text(s,v.name,lx+.45,6.51,2.1,.28,{fontSize:13,color:white});});
+ }
+ for(const [title,k] of [['Kumulierte geschuldete Beträge','debt'],['Kumulierte Mätchelis','matches'],['Kumulierte Siege','wins']]){s=slide(title,'Entwicklung pro Partie · Start bei null');const series=names.map(n=>{let total=0;return {name:n,labels:['Start',...rows.map(r=>r.e.date)],values:[0,...rows.map(r=>{const v=Number(stats([r],[n])[k]);if(!Number.isFinite(v)||v<0)throw new Error('Ungültiger Statistikwert: '+n+' / '+k);return total+=v;})]};});drawAnnualLine(s,series,k);}
+
  s=slide('Danke Brüders','und guet Blatt!');s.addImage({data:EXPORT_LOGO,x:1,y:1.7,w:4.6,h:4.6});text(s,'und guet Blatt!',6,3,6,1.2,{fontFace:'Georgia',fontSize:42,color:gold});await ppt.writeFile({fileName:`Jasspaepste_Performance_Review_${year}.pptx`});
  }catch(e){console.error(e);alert('PPT konnte nicht erstellt werden: '+e.message);}finally{btn.disabled=false;}}
 
