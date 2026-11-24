@@ -1470,10 +1470,8 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
    galleryItems=photos;galleryClose();gallery.replaceChildren();gallery.classList.remove('jass-gallery-grid');
    const count=document.getElementById('jassGalleryCount');if(count)count.textContent=photos.length+' '+(photos.length===1?'Foto':'Fotos');
    if(!photos.length){const p=document.createElement('p');p.className='small';p.textContent='Noch keine Siegerfotos gespeichert.';gallery.appendChild(p);return;}
-   let year=null,yearGrid;
-    for(let i=0;i<photos.length;i++){const photo=photos[i],f=galleryFacts(photo);
-      const y=(String(f.date).match(/^\d{4}/)||String(f.date).match(/\d{4}$/)||["Ohne Jahr"])[0];
-      if(y!==year){year=y;const h=document.createElement("h3");h.className="gallery-year";h.textContent=y;yearGrid=document.createElement("div");yearGrid.className="jass-gallery-grid";gallery.append(h,yearGrid);}
+   const yearGrid=document.createElement('div');yearGrid.className='jass-gallery-grid';gallery.appendChild(yearGrid);
+   for(let i=0;i<photos.length;i++){const photo=photos[i],f=galleryFacts(photo);
      const card=document.createElement('article');card.className='jass-gallery-card';
      const open=document.createElement('button');open.type='button';open.className='jass-gallery-open';open.setAttribute('aria-label','Siegerfoto vergrössern: '+(f.winner||f.name));
      const picture=document.createElement('img');const url=URL.createObjectURL(photo.blob);picture.src=url;picture.alt='Siegerfoto '+(f.date||'');picture.loading='lazy';picture.onload=()=>URL.revokeObjectURL(url);picture.onerror=()=>URL.revokeObjectURL(url);
