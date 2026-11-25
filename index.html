@@ -401,6 +401,7 @@ header.top .hamburger-area{margin:0 0 0 auto}
 <div class="teamsetup" style="margin-top:12px">
 <div><label for="teamA1">Team A · Spieler 1</label><select id="teamA1"></select></div><div><label for="teamA2">Team A · Spieler 2</label><select id="teamA2"></select></div><div><label for="teamB1">Team B · Spieler 1</label><select id="teamB1"></select></div>
 <div><label for="teamB2">Team B · Spieler 2</label><select id="teamB2"></select></div></div>
+<div id="historicalTeamControls" hidden style="margin:12px 0"><button type="button" class="btn" id="editHistoricalTeams" style="width:100%;min-height:44px" onclick="beginHistoricalTeamEdit()">Teams bearbeiten</button><div id="historicalTeamActions" hidden><p class="small">Team A und B neu zuordnen. Punkte bleiben unverändert. Jeder Spieler muss genau einmal gewählt sein.</p><button type="button" class="btn" onclick="saveHistoricalTeams()">Teams speichern</button> <button type="button" class="btn" onclick="cancelHistoricalTeams()">Abbrechen</button></div></div>
 <div id="predictionsPanel" class="predictions-panel hidden"></div>
 <div class="totals">
 <div class="total"><div class="name" id="labelA">TEAM A</div><strong id="totalA">0</strong><div class="small">gewichtete Gesamtpunkte</div></div>
@@ -624,7 +625,33 @@ function switchView(v){setMenuOpen(false);if(v==="stats"||v==="fame")renderStats
 function addPlayer(){let n=$("newPlayerName").value.trim();if(!n)return;if(db.players.some(p=>p.name.toLowerCase()===n.toLowerCase()))return alert("Spieler existiert bereits.");db.players.push({id:uid(),name:n});$("newPlayerName").value="";persist()}
 function renderPlayers(){ $("playerList").innerHTML=db.players.length?db.players.map(p=>`<span class="chip">${esc(p.name)}</span>`).join(""):'<span class="muted">Noch keine Spieler angelegt.</span>'}
 function renderParticipants(){}
-function renderTeamSelects(){let e=current(),ids=e?.participants?.length?e.participants:db.players.filter(p=>FIXED_PLAYERS.includes(p.name)).map(p=>p.id);["teamA1","teamA2","teamB1","teamB2"].forEach(k=>{let old=$(k).value;$(k).innerHTML='<option value="">Auswählen…</option>'+ids.map(id=>`<option value="${id}">${esc(pname(id))}</option>`).join("");let saved=e?.teams?.[k];if(saved&&ids.includes(saved))$(k).value=saved;else if(ids.includes(old))$(k).value=old;$(k).disabled=!!(e?.results?.some(r=>r.teamA!==null||r.teamB!==null));});updateTeamLabels()}
+let historicalTeamEditId=null;
+const historicalTeamKeys=["teamA1","teamA2","teamB1","teamB2"];
+function renderTeamSelects(){
+ const e=current(),locked=!!e?.results?.some(r=>r.teamA!==null||r.teamB!==null);
+ if(historicalTeamEditId!==e?.id)historicalTeamEditId=null;
+ const editing=!!e&&historicalTeamEditId===e.id;
+ const ids=e?.participants?.length===4?e.participants:db.players.filter(p=>FIXED_PLAYERS.includes(p.name)).map(p=>p.id);
+ const saved=e?.teams|| (e?statPartyTeams(e):null);
+ historicalTeamKeys.forEach(k=>{const old=$(k).value;$(k).innerHTML='<option value="">Auswählen…</option>'+ids.map(id=>`<option value="${esc(id)}">${esc(pname(id))}</option>`).join("");$(k).value=editing&&ids.includes(old)?old:saved&&ids.includes(saved[k])?saved[k]:!locked&&ids.includes(old)?old:"";$(k).disabled=locked&&!editing;});
+ $("historicalTeamControls").hidden=!e||!locked;
+ $("editHistoricalTeams").hidden=editing;
+ $("historicalTeamActions").hidden=!editing;
+ updateTeamLabels();
+}
+function beginHistoricalTeamEdit(){const e=current();if(!e)return;historicalTeamEditId=e.id;renderTeamSelects();}
+function cancelHistoricalTeams(){historicalTeamEditId=null;renderTeamSelects();}
+function saveHistoricalTeams(){
+ const e=current();if(!e||historicalTeamEditId!==e.id)return;
+ const ids=historicalTeamKeys.map(k=>$(k).value);
+ if(ids.some(id=>!id||!db.players.some(p=>p.id===id))||new Set(ids).size!==4)return alert("Bitte jeden der vier Spieler genau einmal auswählen.");
+ if(!confirm("Teamzuordnung für die gesamte Partie ändern? Alle Punkte bleiben unverändert. Statistiken und Schulden werden neu berechnet."))return;
+ e.teams=Object.fromEntries(historicalTeamKeys.map((k,i)=>[k,ids[i]]));
+ e.participants=[...ids];
+ for(const r of e.results){r.teamAPlayers=ids.slice(0,2);r.teamBPlayers=ids.slice(2,4);}
+ historicalTeamEditId=null;persist();if(typeof window.refreshBoardWinnerPhoto==='function')window.refreshBoardWinnerPhoto();
+}
+
 function predictionHistoryTeams(e){
  if(e.teams)return e.teams;
  const rows=e.results||[];
@@ -809,8 +836,8 @@ function closeFinishModal(){stopFinishCountdown();$('finishModal').classList.add
 function maybeShowFinish(e,wasComplete){if(!wasComplete&&finishComplete(e)&&!e.finished)showFinishModal(e);}
 
 function finishEvening(){let e=current();if(!e)return alert("Kein Jassabend ausgewählt.");if(!e.teams)return alert("Bitte Teams zuordnen.");if(e.results.some(r=>!r.notPlayed&&(r.teamA===null||r.teamB===null)))return alert("Noch nicht alle 16 Spielarten wurden von beiden Teams gespielt.");showFinishModal(e)}
-function loadEvening(){$("jassYear").value="";currentId=$("eveningSelect").value||null;let e=current();if(e){$("date").value=e.date;$("jassYear").value=e.jassYear||"";$("eveningName").value=e.name||""}renderAll()}
-function updateTeamLabels(){let e=current();if(e){let ids=["teamA1","teamA2","teamB1","teamB2"].map(k=>$(k).value);if(ids.every(Boolean)&&new Set(ids).size===4){e.teams=Object.fromEntries(["teamA1","teamA2","teamB1","teamB2"].map((k,i)=>[k,ids[i]]));localStorage.setItem(KEY,JSON.stringify(db));}}let a=[$("teamA1").value,$("teamA2").value].filter(Boolean),b=[$("teamB1").value,$("teamB2").value].filter(Boolean);$("labelA").textContent="TEAM A · "+(a.map(pname).join(" & ")||"nicht gewählt");$("labelB").textContent="TEAM B · "+(b.map(pname).join(" & ")||"nicht gewählt")}
+function loadEvening(){historicalTeamEditId=null;$("jassYear").value="";currentId=$("eveningSelect").value||null;let e=current();if(e){$("date").value=e.date;$("jassYear").value=e.jassYear||"";$("eveningName").value=e.name||""}renderAll()}
+function updateTeamLabels(){let e=current();if(e&&historicalTeamEditId===e.id)return;if(e&&!e.results?.some(r=>r.teamA!==null||r.teamB!==null)){let ids=["teamA1","teamA2","teamB1","teamB2"].map(k=>$(k).value);if(ids.every(Boolean)&&new Set(ids).size===4){e.teams=Object.fromEntries(["teamA1","teamA2","teamB1","teamB2"].map((k,i)=>[k,ids[i]]));localStorage.setItem(KEY,JSON.stringify(db));}}let a=[$("teamA1").value,$("teamA2").value].filter(Boolean),b=[$("teamB1").value,$("teamB2").value].filter(Boolean);$("labelA").textContent="TEAM A · "+(a.map(pname).join(" & ")||"nicht gewählt");$("labelB").textContent="TEAM B · "+(b.map(pname).join(" & ")||"nicht gewählt")}
 
 let specialMatchPendingFinish=null;
 function closeSpecialMatch(){
@@ -955,7 +982,7 @@ if(typeof window.refreshBoardWinnerPhoto==='function')window.refreshBoardWinnerP
 function renderEvenings(){let old=$("eveningSelect").value;$("eveningSelect").innerHTML='<option value="">Partie auswählen…</option>'+[...db.evenings].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).map(e=>`<option value="${e.id}">${esc(e.date)} · ${esc(e.name||"Jassabend")}${e.finished?" (abgeschlossen)":""}</option>`).join("");if(currentId)$("eveningSelect").value=currentId;else if(old&&db.evenings.some(e=>e.id===old))$("eveningSelect").value=old}
 function renderHistory(){let h=$("history");h.innerHTML=db.evenings.length?[...db.evenings].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).map(e=>{let a=e.results.reduce((s,r)=>s+(r.teamA===null?0:r.teamA*r.multiplier),0),b=e.results.reduce((s,r)=>s+(r.teamB===null?0:r.teamB*r.multiplier),0),done=e.results.filter(r=>r.teamA!==null&&r.teamB!==null).length;return `<div style="padding:12px 0;border-bottom:1px solid var(--line)"><b>${esc(e.date)} · ${esc(e.name||"Jassabend")}</b><div class="small">Jassjahr ${esc(e.jassYear||"–")} · ${e.participants.map(pname).join(", ")} · ${done}/16 Spielarten vollständig · ${e.finished?"Abgeschlossen":"Offen"}</div><div style="margin-top:6px">Team A: <b>${fmt(a)}</b> &nbsp; Team B: <b>${fmt(b)}</b></div><button class="btn secondary" style="margin-top:8px;padding:7px 10px" onclick="openEvening('${e.id}')">Tafel öffnen</button> <button class="btn secondary" style="margin-top:8px;padding:7px 10px;color:#f0a9a1;border-color:#a95a54" onclick="deleteEvening('${e.id}')">Partie löschen</button></div>`}).join(""):'<p class="muted">Noch keine Jassabende gespeichert.</p>'}
 window.deleteEvening=id=>{const e=db.evenings.find(x=>x.id===id);if(!e)return;const label=`${e.date} · ${e.name||"Jassabend"}`;if(!confirm(`Jassabend «${label}» wirklich unwiderruflich löschen?\n\nAlle Resultate, Mätchelis und zugehörigen Statistiken dieses Abends werden entfernt.`))return;db.evenings=db.evenings.filter(x=>x.id!==id);if(currentId===id){currentId=null;$("eveningName").value="";$("date").value=new Date().toISOString().slice(0,10)}localStorage.setItem(KEY,JSON.stringify(db));renderAll();switchView("stats")};
-window.openEvening=id=>{currentId=id;renderAll();switchView("board");$("eveningSelect").value=id;let e=current();$("date").value=e.date;$("jassYear").value=e.jassYear||"";$("eveningName").value=e.name||"";renderParticipants();renderTeamSelects()}
+window.openEvening=id=>{historicalTeamEditId=null;currentId=id;renderAll();switchView("board");$("eveningSelect").value=id;let e=current();$("date").value=e.date;$("jassYear").value=e.jassYear||"";$("eveningName").value=e.name||"";renderParticipants();renderTeamSelects()}
 function renderAll(){if($("backupCount"))$("backupCount").textContent=`${db.evenings.length} Partien werden im Backup gesichert.`;renderPlayers();renderAnnualWinsEditor();renderEvenings();renderParticipants();renderTeamSelects();renderBoard();renderPredictions();renderHistory();renderStats();renderAnnual();renderProfiles();renderMoneyOverview();if($("homeSummary"))$("homeSummary").textContent=`${db.evenings.length} gespeicherte Partien · ${db.evenings.filter(e=>e.finished).length} abgeschlossen`;}
 
 function statsNum(n,dec=2){return Number(n||0).toLocaleString("de-CH",{minimumFractionDigits:dec,maximumFractionDigits:dec})}
