@@ -1032,7 +1032,19 @@ async function exportAnnualPpt(){
  const bg='111E19',gold='DCC18A',white='F4EFE1',muted='B7BEB4',green='20332A',colors=['DCC18A','A8C99B','89B9D4','D6A0B8'];let page=0;
  const num=n=>Number(n).toLocaleString('de-CH',{maximumFractionDigits:0}), avg=(a)=>a.length?num(a.reduce((s,x)=>s+x,0)/a.length):'–';
  function text(s,t,x,y,w,h,o={}){s.addText(String(t),{x,y,w,h,fontFace:'Aptos',fontSize:16,color:white,margin:0,breakLine:false,...o});}
- function slide(title,sub=''){const s=ppt.addSlide();s.background={color:bg};page++;s.addShape(ppt.ShapeType.rect,{x:.45,y:.35,w:.045,h:.8,fill:{color:gold},line:{color:gold}});text(s,title,.7,.35,12,.65,{fontFace:'Georgia',fontSize:30,bold:true});text(s,sub,.72,1.05,12,.4,{color:muted,fontSize:14});s.addShape(ppt.ShapeType.line,{x:.5,y:7.12,w:12.3,h:0,line:{color:gold,width:1}});text(s,`JASSPÄPSTE · PERFORMANCE REVIEW ${year}`, .5,7.19,11,.18,{fontSize:9,color:muted});text(s,String(page).padStart(2,'0'),12.2,7.19,.6,.18,{fontSize:9,align:'right',color:muted});return s;}
+ const masterObjects=[{rect:{x:.45,y:.35,w:.045,h:.8,fill:{color:gold},line:{color:gold}}},{line:{x:.5,y:7.12,w:12.3,h:0,line:{color:gold,width:1}}},{text:{text:`JASSPÄPSTE · PERFORMANCE REVIEW ${year}`,options:{x:.5,y:7.19,w:11,h:.18,fontFace:'Aptos',fontSize:9,color:muted,margin:0}}}];
+ const ph=(name,type,x,y,w,h,fontFace,fontSize,color,bold=false)=>({placeholder:{text:'',options:{name,type,x,y,w,h,fontFace,fontSize,color,bold,margin:0}}});
+ const heading=ph('Titel','title',.7,.35,12,.65,'Georgia',30,white,true);
+ const subtitle=ph('Untertitel','body',.72,1.05,12,.4,'Aptos',14,muted);
+ const body=(name,x,w)=>ph(name,'body',x,1.65,w,5.15,'Aptos',16,white);
+ ppt.theme={headFontFace:'Georgia',bodyFontFace:'Aptos',lang:'de-CH'};
+ ppt.masterSlide.background={color:bg};
+ ppt.slideLayouts[0].background={color:bg};
+ ppt.defineSlideMaster({title:'Jasspäpste – Standard',background:{color:bg},objects:[...masterObjects,heading,subtitle]});
+ ppt.defineSlideMaster({title:'Jasspäpste – Text',background:{color:bg},objects:[...masterObjects,heading,subtitle,body('Inhalt',.7,11.95)]});
+ ppt.defineSlideMaster({title:'Jasspäpste – Zwei Spalten',background:{color:bg},objects:[...masterObjects,heading,subtitle,body('Links',.7,5.75),body('Rechts',6.9,5.75)]});
+ ppt.defineSlideMaster({title:'Jasspäpste – Bild',background:{color:bg},objects:[...masterObjects,heading,ph('Bild','pic',.7,1.65,11.95,5.15,'Aptos',16,white)]});
+ function slide(title,sub=''){const s=ppt.addSlide({masterName:'Jasspäpste – Standard'});s.background={color:bg};page++;text(s,title,.7,.35,12,.65,{fontFace:'Georgia',fontSize:30,bold:true,placeholder:'Titel'});text(s,sub,.72,1.05,12,.4,{color:muted,fontSize:14,placeholder:'Untertitel'});text(s,String(page).padStart(2,'0'),12.2,7.19,.6,.18,{fontSize:9,align:'right',color:muted});return s;}
  function table(title,sub,head,data){
  const narrow=title.startsWith('Direktvergleich')||['Let’s talk Money','Disziplinen nach Money','Disziplinen Übersicht','Mätcheli-Statistik'].includes(title);
  const discipline=['Disziplinen nach Money','Direktvergleich nach Disziplin','Disziplinen Übersicht','Mätcheli-Statistik'].includes(title);
